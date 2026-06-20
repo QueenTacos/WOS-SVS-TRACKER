@@ -66,7 +66,7 @@ function getPlayerSubmitState(entry, phase){
     return "vanity";
   }
   return "locked";
-}00;
+}
 
 
 function useCountdown(target){

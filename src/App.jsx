@@ -655,7 +655,7 @@ function SubmitPage({entries,loadEntries,showToast,phase,playerUser,setPage,admi
       if(!existing.cycle1_firstAt){
         updated.cycle1_firstBag=bag;
         updated.cycle1_firstAt=now;
-        if(imageData) updated.cycle1_firstScreenshot=imageData;
+        if(images.length>0) updated.cycle1_firstScreenshot=images.map(i=>i.data);
       }
 
       // Final bag submission
@@ -663,7 +663,7 @@ function SubmitPage({entries,loadEntries,showToast,phase,playerUser,setPage,admi
         if(!existing.cycle1_finalFirstAt){
           updated.cycle1_finalFirstBag=bag;
           updated.cycle1_finalFirstAt=now;
-          if(imageData) updated.cycle1_finalFirstScreenshot=imageData;
+          if(images.length>0) updated.cycle1_finalFirstScreenshot=images.map(i=>i.data);
         }
         updated.cycle1_finalLatestBag=bag;
         updated.cycle1_finalLatestAt=now;
@@ -786,8 +786,8 @@ function SubmitPage({entries,loadEntries,showToast,phase,playerUser,setPage,admi
       <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:14,marginBottom:14}}>
         <h3 style={{fontSize:13,fontWeight:700,color:ACCENT,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>📸 Bag Screenshot <span style={{color:MUTED,fontSize:11,textTransform:"none",fontWeight:400}}>(optional)</span></h3>
         <div onDrop={e=>{e.preventDefault();handleFile(e.dataTransfer.files[0]);}} onDragOver={e=>e.preventDefault()} onClick={()=>fileRef.current.click()}
-          style={{border:`2px dashed ${imagePreview?ACCENT:BORDER}`,borderRadius:8,padding:"12px",textAlign:"center",cursor:"pointer",background:imagePreview?"#0f2030":"transparent",display:"flex",alignItems:"center",justifyContent:"center",gap:10,minHeight:60,transition:"all 0.2s"}}>
-          {imagePreview?(<><img src={imagePreview} alt="preview" style={{maxHeight:100,maxWidth:160,borderRadius:5,objectFit:"contain"}}/><span style={{color:MUTED,fontSize:12}}>Click to replace</span></>)
+          style={{border:`2px dashed ${images.length>0?ACCENT:BORDER}`,borderRadius:8,padding:"12px",textAlign:"center",cursor:"pointer",background:images.length>0?"#0f2030":"transparent",display:"flex",alignItems:"center",justifyContent:"center",gap:10,minHeight:60,transition:"all 0.2s"}}>
+          {images.length>0?(<><img src={images[0].preview} alt="preview" style={{maxHeight:100,maxWidth:160,borderRadius:5,objectFit:"contain"}}/><span style={{color:MUTED,fontSize:12}}>Click to replace</span></>)
           :(<><span style={{fontSize:22}}>📸</span><span style={{color:MUTED,fontSize:13}}>Drop or <span style={{color:ACCENT}}>click to browse</span> — PNG/JPG/WEBP up to 4.5MB</span></>)}
         </div>
         <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(e.target.files[0])}/>

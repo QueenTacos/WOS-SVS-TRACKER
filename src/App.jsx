@@ -649,7 +649,7 @@ function SubmitPage({entries,loadEntries,showToast,phase,playerUser,setPage,admi
       // Always save as latest bag (vanity/live leaderboard)
       updated.cycle1_latestBag=bag;
       updated.cycle1_latestAt=now;
-      if(imageData) updated.cycle1_latestScreenshot=imageData;
+      if(images.length>0) updated.cycle1_latestScreenshot=images.map(i=>i.data);
 
       // Initial baseline (first ever submit)
       if(!existing.cycle1_firstAt){

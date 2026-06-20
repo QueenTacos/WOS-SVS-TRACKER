@@ -177,6 +177,27 @@ function useCountdown(target){
 }
 
 // ─── ITEM IMAGE COMPONENT ─────────────────────────────────────────────────────
+function ItemLabel({name,isSVS}){
+  // For speedups, split into type + duration for better display
+  const speedupMatch=name.match(/^Speedup \((.+?)\) (.+)$/);
+  if(speedupMatch){
+    const[,type,duration]=speedupMatch;
+    return(
+      <div>
+        <div style={{fontSize:10,color:MUTED,lineHeight:1.2}}>{type}</div>
+        <div style={{fontSize:14,fontWeight:700,color:isSVS?TEXT:MUTED,lineHeight:1.2}}>{duration}</div>
+        {isSVS&&<span className="svs-badge">SVS ⭐</span>}
+      </div>
+    );
+  }
+  return(
+    <div>
+      <div style={{fontSize:11,color:isSVS?TEXT:MUTED,fontWeight:isSVS?600:400,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{name}</div>
+      {isSVS&&<span className="svs-badge">SVS ⭐</span>}
+    </div>
+  );
+}
+
 function ItemImg({name,size=28}){
   const src=ITEM_IMGS[name];
   const isSVS=SVS_PRIORITY.has(name);
@@ -530,8 +551,7 @@ function PlayerLogin({setPlayerUser,setPage,showToast,loadEntries}){
 // ─── SUBMIT PAGE ──────────────────────────────────────────────────────────────
 function SubmitPage({entries,loadEntries,showToast,phase,playerUser,setPage,adminUser}){
   const[bag,setBag]=useState(emptyBag());
-  const[imageData,setImageData]=useState(null);
-  const[imagePreview,setImagePreview]=useState(null);
+  const[images,setImages]=useState([]); // [{data, preview}]
   const[saving,setSaving]=useState(false);
   const[activeCat,setActiveCat]=useState(Object.keys(ITEM_CATEGORIES)[0]);
   const[showSVSOnly,setShowSVSOnly]=useState(false);
@@ -603,12 +623,15 @@ function SubmitPage({entries,loadEntries,showToast,phase,playerUser,setPage,admi
   // Admin override banner
   const showAdminBanner = adminUser && (phase.phase==="locked" || playerState==="final_locked" || playerState==="vanity");
 
-  const handleFile=(file)=>{
-    if(!file||!file.type.startsWith("image/")){showToast("Please select an image file.","error");return;}
-    if(file.size>4.5*1024*1024){showToast("Image must be under 4.5MB.","error");return;}
-    const reader=new FileReader();
-    reader.onload=e=>{setImageData(e.target.result);setImagePreview(e.target.result);};
-    reader.readAsDataURL(file);
+  const handleFile=(files)=>{
+    const arr=Array.from(files);
+    arr.forEach(file=>{
+      if(!file.type.startsWith("image/")){showToast(`${file.name} is not an image.`,"error");return;}
+      if(file.size>4.5*1024*1024){showToast(`${file.name} exceeds 4.5MB.`,"error");return;}
+      const reader=new FileReader();
+      reader.onload=e=>setImages(prev=>[...prev,{data:e.target.result,preview:e.target.result,name:file.name}]);
+      reader.readAsDataURL(file);
+    });
   };
 
   const handleSubmit=async(asFinal=false)=>{

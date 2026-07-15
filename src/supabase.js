@@ -107,3 +107,15 @@ function entryToDb(e) {
     cycle1_first_screenshot: e.cycle1_firstScreenshot || null,
   }
 }
+
+// ── SETTINGS (cycle dates) ───────────────────────────────────────────────────
+export async function getSettings() {
+  const { data, error } = await supabase.from('settings').select('*').eq('id', 'cycle_dates').single()
+  if (error) return null
+  return data.value
+}
+
+export async function saveSettings(value) {
+  const { error } = await supabase.from('settings').upsert({ id: 'cycle_dates', value }, { onConflict: 'id' })
+  if (error) throw error
+}

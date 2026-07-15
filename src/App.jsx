@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { getAllEntries, getEntry, upsertEntry, deleteEntry, getAdmins, addAdmin, removeAdmin, findAdmin } from "./supabase.js";
+import { getAllEntries, getEntry, upsertEntry, deleteEntry, getAdmins, addAdmin, removeAdmin, findAdmin, getSettings, saveSettings } from "./supabase.js";
 
 const SVS_PRIORITY=new Set([
   "Fire Crystal","Refined Fire Crystal","Fire Crystal Shard","Fire Crystal Ember",
@@ -106,33 +106,34 @@ const OWNER_EMAIL="yumqueentacos@gmail.com";
 const OWNER_PASS_HASH=btoa("PLNt123!!$$");
 
 // ─── CYCLE LOGIC ──────────────────────────────────────────────────────────────
-// ── CYCLE 1 TIMELINE ─────────────────────────────────────────────────────────
-// Jun 20 – Jul 9:   Initial bag window (first submit = baseline, 3-day edit lock)
-//                   After initial lock: vanity updates freely, leaderboard live
-// Jul 10 – Jul 12 23:50: Final bag window (prompt to submit final, 3-day edit lock)
-// Jul 13 – 17:      Prep Week — site locked
-// Jul 18+:          Cycle 2 (TBD)
+// ── CYCLE DATES — dynamic, editable by admin ────────────────────────────────
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
-const C1_START          = new Date("2026-06-20T00:00:00");
-const C1_VANITY_END     = new Date("2026-07-09T23:59:59");
-const C1_FINAL_START    = new Date("2026-07-10T00:00:00");
-const C1_FINAL_END      = new Date("2026-07-12T23:50:00");
-const C1_PREP_END       = new Date("2026-07-17T23:59:59");
-const C2_START          = new Date("2026-07-18T00:00:00");
-const C2_END            = new Date("2026-08-09T23:59:59");
-const C2_PREP_END       = new Date("2026-08-14T23:59:59");
-const THREE_DAYS_MS     = 3 * 24 * 60 * 60 * 1000;
+const DEFAULT_DATES = {
+  c1_baseline_start: "2026-06-20T00:00:00",
+  c1_baseline_end:   "2026-07-09T23:59:59",
+  c1_final_start:    "2026-07-10T00:00:00",
+  c1_final_end:      "2026-07-12T23:50:00",
+  c1_prep_end:       "2026-07-17T23:59:59",
+  c2_start:          "2026-07-18T00:00:00",
+  c2_end:            "2026-08-09T23:59:59",
+  c2_prep_end:       "2026-08-14T23:59:59",
+};
 
-function getPhase(){
+let CYCLE_DATES = {...DEFAULT_DATES};
+
+function getPhaseFromDates(d){
   const now = new Date();
-  if(now >= C2_END && now <= C2_PREP_END)   return {phase:"locked",     label:"Prep Week — Locked",          cycle:2, until:C2_PREP_END};
-  if(now >= C2_START && now <= C2_END)       return {phase:"c2_open",    label:"Cycle 2 Open",                cycle:2, until:C2_END};
-  if(now > C1_FINAL_END && now <= C1_PREP_END) return {phase:"locked",  label:"SVS Prep Week — Locked",      cycle:1, until:C1_PREP_END};
-  if(now >= C1_FINAL_START && now <= C1_FINAL_END) return {phase:"c1_final", label:"Final Bag Window Open",  cycle:1, until:C1_FINAL_END};
-  if(now >= C1_START && now <= C1_VANITY_END)  return {phase:"c1_open",  label:"Bag Submissions Open",       cycle:1, until:C1_VANITY_END};
-  if(now < C1_START)                           return {phase:"upcoming",  label:"Opens June 20",             cycle:0, until:C1_START};
+  if(now > new Date(d.c2_end) && now <= new Date(d.c2_prep_end))         return {phase:"locked",    label:"Prep Week — Locked",       cycle:2, until:new Date(d.c2_prep_end)};
+  if(now >= new Date(d.c2_start) && now <= new Date(d.c2_end))           return {phase:"c2_open",   label:"Cycle 2 Open",             cycle:2, until:new Date(d.c2_end)};
+  if(now > new Date(d.c1_final_end) && now <= new Date(d.c1_prep_end))   return {phase:"locked",    label:"SVS Prep Week — Locked",   cycle:1, until:new Date(d.c1_prep_end)};
+  if(now >= new Date(d.c1_final_start) && now <= new Date(d.c1_final_end)) return {phase:"c1_final",label:"Final Bag Window Open",    cycle:1, until:new Date(d.c1_final_end)};
+  if(now >= new Date(d.c1_baseline_start) && now <= new Date(d.c1_baseline_end)) return {phase:"c1_open",label:"Bag Submissions Open",cycle:1, until:new Date(d.c1_baseline_end)};
+  if(now < new Date(d.c1_baseline_start)) return {phase:"upcoming", label:`Opens ${new Date(d.c1_baseline_start).toLocaleDateString("en-US",{month:"short",day:"numeric"})}`, cycle:0, until:new Date(d.c1_baseline_start)};
   return {phase:"closed", label:"Season Complete", cycle:99};
 }
+
+function getPhase(){ return getPhaseFromDates(CYCLE_DATES); }
 
 // Per-player state within a phase
 // Returns one of: "no_account" | "submit_initial" | "edit_initial" | "vanity" |
@@ -234,7 +235,13 @@ export default function App(){
 
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),3500);};
 
-  useEffect(()=>{loadEntries();},[]);
+  useEffect(()=>{
+    // Load cycle dates from DB on startup
+    getSettings().then(saved=>{
+      if(saved) CYCLE_DATES={...DEFAULT_DATES,...saved};
+    }).catch(()=>{});
+    loadEntries();
+  },[]);
   const loadEntries=async()=>{
     setLoading(true);
     try{
@@ -1095,6 +1102,85 @@ function BagPreviewBar({playerUser,phase,filledCount,bag,setBag,playerState,exis
   );
 }
 
+
+// ─── DATE SETTINGS PANEL ─────────────────────────────────────────────────────
+function DateSettingsPanel({showToast}){
+  const[dates,setDates]=useState({...CYCLE_DATES});
+  const[saving,setSaving]=useState(false);
+
+  const fields=[
+    {key:"c1_baseline_start",label:"Cycle 1 — Baseline Window Opens",color:GREEN},
+    {key:"c1_baseline_end",  label:"Cycle 1 — Baseline Window Closes",color:GREEN},
+    {key:"c1_final_start",   label:"Cycle 1 — Final Bag Window Opens",color:GOLD},
+    {key:"c1_final_end",     label:"Cycle 1 — Final Bag Window Closes (hard lock)",color:GOLD},
+    {key:"c1_prep_end",      label:"Cycle 1 — Prep Week Ends / Site Unlocks",color:RED},
+    {key:"c2_start",         label:"Cycle 2 — Opens",color:ACCENT},
+    {key:"c2_end",           label:"Cycle 2 — Closes",color:ACCENT},
+    {key:"c2_prep_end",      label:"Cycle 2 — Prep Week Ends",color:RED},
+  ];
+
+  const handleSave=async()=>{
+    setSaving(true);
+    try{
+      await saveSettings(dates);
+      CYCLE_DATES={...dates};
+      showToast("Cycle dates saved!");
+    }catch{showToast("Failed to save dates.","error");}
+    finally{setSaving(false);}
+  };
+
+  const resetDefaults=()=>{
+    setDates({...DEFAULT_DATES});
+    showToast("Reset to defaults — click Save to apply.");
+  };
+
+  // Preview what phase would be active with current settings
+  const preview=getPhaseFromDates(dates);
+
+  return(
+    <div className="fade">
+      <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,padding:20,marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+          <h3 style={{fontSize:15,fontWeight:700,color:ORANGE,textTransform:"uppercase",letterSpacing:"0.06em"}}>📅 Cycle Date Settings</h3>
+          <div style={{display:"flex",gap:8}}>
+            <button className="bg" onClick={resetDefaults}>Reset to Defaults</button>
+            <button className="bp" disabled={saving} onClick={handleSave} style={{background:ORANGE}}>
+              {saving?"Saving…":"Save Dates ✓"}
+            </button>
+          </div>
+        </div>
+
+        {/* Live preview */}
+        <div style={{background:`${preview.phase==="locked"?RED:GREEN}18`,border:`1px solid ${preview.phase==="locked"?RED:GREEN}44`,borderRadius:8,padding:"10px 14px",marginBottom:18,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:16}}>{preview.phase==="locked"?"🔒":"✅"}</span>
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:preview.phase==="locked"?RED:GREEN}}>Current Phase: {preview.label}</div>
+            <div style={{fontSize:11,color:MUTED}}>Based on dates below — updates live as you change them</div>
+          </div>
+        </div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {fields.map(({key,label,color})=>(
+            <div key={key} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:12,alignItems:"center",background:CARD2,border:`1px solid ${BORDER}`,borderRadius:8,padding:"10px 14px"}}>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:3}}>{label}</div>
+                <div style={{fontSize:11,color:MUTED}}>{new Date(dates[key]).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+              </div>
+              <input
+                type="datetime-local"
+                className="fi"
+                style={{width:200,fontSize:12}}
+                value={dates[key].slice(0,16)}
+                onChange={e=>setDates(p=>({...p,[key]:e.target.value+":00"}))}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── ADMIN LOGIN ──────────────────────────────────────────────────────────────
 function AdminLogin({setAdminUser,setPage,showToast}){
   const[email,setEmail]=useState("");const[pass,setPass]=useState("");const[loading,setLoading]=useState(false);
@@ -1152,9 +1238,10 @@ function AdminPanel({entries,loadEntries,showToast,adminUser,isOwner}){
           <h2 style={{fontSize:22,fontWeight:700,color:TEXT}}>Admin Panel</h2>
           <p style={{color:MUTED,fontSize:13}}>Logged in as <span style={{color:ACCENT}}>{adminUser.email}</span> · <span style={{color:GOLD,textTransform:"capitalize"}}>{adminUser.role}</span></p>
         </div>
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button className="bg" onClick={()=>setTab("entries")} style={tab==="entries"?{borderColor:ACCENT,color:ACCENT}:{}}>Entries ({entries.length})</button>
           {isOwner&&<button className="bg" onClick={()=>setTab("admins")} style={tab==="admins"?{borderColor:GOLD,color:GOLD}:{}}>Manage Admins</button>}
+          {isOwner&&<button className="bg" onClick={()=>setTab("dates")} style={tab==="dates"?{borderColor:ORANGE,color:ORANGE}:{}}>📅 Cycle Dates</button>}
         </div>
       </div>
 
@@ -1192,6 +1279,7 @@ function AdminPanel({entries,loadEntries,showToast,adminUser,isOwner}){
         </div>
       ))}
 
+      {tab==="dates"&&isOwner&&<DateSettingsPanel showToast={showToast}/>}
       {tab==="admins"&&isOwner&&(
         <div>
           <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,padding:20,marginBottom:16,maxWidth:480}}>

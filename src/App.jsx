@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { getAllEntries, getEntry, upsertEntry, deleteEntry, getAdmins, addAdmin, removeAdmin, findAdmin, getSettings, saveSettings } from "./supabase.js";
+import { getAllEntries, getEntry, upsertEntry, deleteEntry, getAdmins, addAdmin, removeAdmin, findAdmin, getSettings, saveSettings, getCycles, upsertCycle, deleteCycle } from "./supabase.js";
 
 const SVS_PRIORITY=new Set([
   "Fire Crystal","Refined Fire Crystal","Fire Crystal Shard","Fire Crystal Ember",
@@ -1103,6 +1103,205 @@ function BagPreviewBar({playerUser,phase,filledCount,bag,setBag,playerState,exis
 }
 
 
+
+// ─── CYCLES PANEL ────────────────────────────────────────────────────────────
+function CyclesPanel({showToast}){
+  const[cycles,setCycles]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[expanded,setExpanded]=useState(null);
+  const[adding,setAdding]=useState(false);
+  const[saving,setSaving]=useState(null);
+  const[deleteConfirm,setDeleteConfirm]=useState(null);
+
+  useEffect(()=>{ loadCycles(); },[]);
+
+  const loadCycles=async()=>{
+    setLoading(true);
+    try{ const list=await getCycles(); setCycles(list); }
+    catch{ showToast("Failed to load cycles.","error"); }
+    finally{ setLoading(false); }
+  };
+
+  const newCycle=()=>({
+    id:`cycle_${Date.now()}`,
+    name:"New SVS Cycle",
+    hidden:false,
+    c1_baseline_start:"",
+    c1_baseline_end:"",
+    c1_final_start:"",
+    c1_final_end:"",
+    c1_prep_end:"",
+    created_at:new Date().toISOString(),
+  });
+
+  const handleSave=async(cycle)=>{
+    setSaving(cycle.id);
+    try{
+      await upsertCycle(cycle);
+      await loadCycles();
+      showToast("Cycle saved!");
+      if(adding) setAdding(false);
+    }catch{ showToast("Failed to save.","error"); }
+    finally{ setSaving(null); }
+  };
+
+  const handleDelete=async(id)=>{
+    try{
+      await deleteCycle(id);
+      await loadCycles();
+      setDeleteConfirm(null);
+      setExpanded(null);
+      showToast("Cycle deleted.");
+    }catch{ showToast("Failed to delete.","error"); }
+  };
+
+  const toggleHide=async(cycle)=>{
+    const updated={...cycle,hidden:!cycle.hidden};
+    await handleSave(updated);
+  };
+
+  const cycleStatus=(cycle)=>{
+    if(cycle.hidden) return {label:"Hidden",color:MUTED};
+    const now=new Date();
+    if(cycle.c1_final_end && now > new Date(cycle.c1_prep_end||cycle.c1_final_end)) return {label:"Completed",color:ACCENT};
+    if(cycle.c1_baseline_start && now >= new Date(cycle.c1_baseline_start)) return {label:"Active",color:GREEN};
+    if(cycle.c1_baseline_start && now < new Date(cycle.c1_baseline_start)) return {label:"Upcoming",color:GOLD};
+    return {label:"Draft",color:MUTED};
+  };
+
+  const DATE_FIELDS=[
+    {key:"c1_baseline_start",label:"Baseline Opens",color:GREEN},
+    {key:"c1_baseline_end",  label:"Baseline Closes",color:GREEN},
+    {key:"c1_final_start",   label:"Final Bag Opens",color:GOLD},
+    {key:"c1_final_end",     label:"Final Bag Closes (hard lock)",color:GOLD},
+    {key:"c1_prep_end",      label:"Prep Week Ends / Unlocks",color:RED},
+  ];
+
+  return(
+    <div className="fade">
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <h3 style={{fontSize:16,fontWeight:700,color:GREEN}}>🔄 SVS Cycles</h3>
+        <button className="bp" style={{background:GREEN}} onClick={()=>{setAdding(true);setExpanded("new");}}>+ Add Cycle</button>
+      </div>
+
+      {loading?<p style={{color:MUTED,padding:20,textAlign:"center"}}>Loading…</p>:(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+
+          {/* New cycle form */}
+          {adding&&(
+            <CycleCard
+              cycle={newCycle()} isNew={true}
+              dateFields={DATE_FIELDS}
+              expanded={true}
+              saving={saving}
+              onSave={handleSave}
+              onCancel={()=>setAdding(false)}
+              onToggleHide={null}
+              onDelete={null}
+              cycleStatus={cycleStatus}
+              showToast={showToast}
+            />
+          )}
+
+          {cycles.length===0&&!adding?<EmptyState icon="🔄" text="No cycles yet. Add one to get started."/>:(
+            cycles.map(cycle=>(
+              <CycleCard
+                key={cycle.id}
+                cycle={cycle} isNew={false}
+                dateFields={DATE_FIELDS}
+                expanded={expanded===cycle.id}
+                saving={saving}
+                onToggle={()=>setExpanded(expanded===cycle.id?null:cycle.id)}
+                onSave={handleSave}
+                onCancel={()=>setExpanded(null)}
+                onToggleHide={toggleHide}
+                onDelete={()=>setDeleteConfirm(cycle.id)}
+                cycleStatus={cycleStatus}
+                showToast={showToast}
+              />
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteConfirm&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:CARD,border:`1px solid ${RED}`,borderRadius:12,padding:28,maxWidth:380,width:"100%"}}>
+            <h3 style={{fontSize:18,fontWeight:700,color:RED,marginBottom:8}}>Delete Cycle?</h3>
+            <p style={{color:MUTED,fontSize:13,marginBottom:20}}>This removes the cycle from the list. Player bag data for this cycle is <strong style={{color:TEXT}}>not deleted</strong> — it stays in the database.</p>
+            <div style={{display:"flex",gap:10}}>
+              <button className="bg" style={{flex:1}} onClick={()=>setDeleteConfirm(null)}>Cancel</button>
+              <button className="bd" style={{flex:1}} onClick={()=>handleDelete(deleteConfirm)}>Delete Cycle</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CycleCard({cycle,isNew,dateFields,expanded,saving,onToggle,onSave,onCancel,onToggleHide,onDelete,cycleStatus}){
+  const[data,setData]=useState({...cycle});
+  const status=cycleStatus(data);
+  const isSaving=saving===data.id;
+
+  return(
+    <div style={{background:CARD,border:`1px solid ${data.hidden?BORDER:status.color+"44"}`,borderRadius:10,overflow:"hidden"}}>
+      {/* Header row */}
+      <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:12,cursor:isNew?"default":"pointer",flexWrap:"wrap"}}
+        onClick={isNew?undefined:onToggle}>
+        <div style={{flex:1,minWidth:0}}>
+          {expanded?(
+            <input className="fi" value={data.name} onChange={e=>setData(p=>({...p,name:e.target.value}))}
+              onClick={e=>e.stopPropagation()}
+              style={{fontSize:15,fontWeight:700,marginBottom:4}}/>
+          ):(
+            <div style={{fontWeight:700,fontSize:15,color:data.hidden?MUTED:TEXT}}>{data.name}</div>
+          )}
+          <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}>
+            <span style={{background:`${status.color}20`,color:status.color,border:`1px solid ${status.color}44`,borderRadius:4,padding:"1px 8px",fontSize:11,fontWeight:700}}>{status.label}</span>
+            {data.c1_baseline_start&&<span style={{fontSize:11,color:MUTED}}>{new Date(data.c1_baseline_start).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} – {data.c1_final_end?new Date(data.c1_final_end).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"?"}</span>}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}} onClick={e=>e.stopPropagation()}>
+          {!isNew&&onToggleHide&&(
+            <button className="bg" onClick={()=>onToggleHide(data)}
+              style={{fontSize:12,borderColor:data.hidden?GREEN:MUTED,color:data.hidden?GREEN:MUTED}}>
+              {data.hidden?"👁 Show":"🙈 Hide"}
+            </button>
+          )}
+          {!isNew&&onDelete&&<button className="bd" onClick={onDelete}>Delete</button>}
+          {!isNew&&<span style={{color:MUTED,fontSize:16}}>{expanded?"▲":"▼"}</span>}
+        </div>
+      </div>
+
+      {/* Expanded date fields */}
+      {expanded&&(
+        <div style={{borderTop:`1px solid ${BORDER}`,padding:16}}>
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
+            {dateFields.map(({key,label,color})=>(
+              <div key={key} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,alignItems:"center",background:CARD2,border:`1px solid ${BORDER}`,borderRadius:7,padding:"8px 12px"}}>
+                <div style={{fontSize:11,fontWeight:700,color,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</div>
+                <input type="datetime-local" className="fi" style={{width:190,fontSize:12}}
+                  value={data[key]?data[key].slice(0,16):""}
+                  onChange={e=>setData(p=>({...p,[key]:e.target.value+":00"}))}/>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button className="bg" onClick={isNew?onCancel:onToggle}>Cancel</button>
+            <button className="bp" style={{flex:1,background:GREEN}} disabled={isSaving}
+              onClick={()=>onSave(data)}>
+              {isSaving?"Saving…":"Save Cycle ✓"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── DATE SETTINGS PANEL ─────────────────────────────────────────────────────
 function DateSettingsPanel({showToast}){
   const[dates,setDates]=useState({...CYCLE_DATES});
@@ -1240,8 +1439,8 @@ function AdminPanel({entries,loadEntries,showToast,adminUser,isOwner}){
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button className="bg" onClick={()=>setTab("entries")} style={tab==="entries"?{borderColor:ACCENT,color:ACCENT}:{}}>Entries ({entries.length})</button>
+          {isOwner&&<button className="bg" onClick={()=>setTab("cycles")} style={tab==="cycles"?{borderColor:GREEN,color:GREEN}:{}}>🔄 Cycles</button>}
           {isOwner&&<button className="bg" onClick={()=>setTab("admins")} style={tab==="admins"?{borderColor:GOLD,color:GOLD}:{}}>Manage Admins</button>}
-          {isOwner&&<button className="bg" onClick={()=>setTab("dates")} style={tab==="dates"?{borderColor:ORANGE,color:ORANGE}:{}}>📅 Cycle Dates</button>}
         </div>
       </div>
 
@@ -1279,7 +1478,7 @@ function AdminPanel({entries,loadEntries,showToast,adminUser,isOwner}){
         </div>
       ))}
 
-      {tab==="dates"&&isOwner&&<DateSettingsPanel showToast={showToast}/>}
+      {tab==="cycles"&&isOwner&&<CyclesPanel showToast={showToast}/>}
       {tab==="admins"&&isOwner&&(
         <div>
           <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,padding:20,marginBottom:16,maxWidth:480}}>

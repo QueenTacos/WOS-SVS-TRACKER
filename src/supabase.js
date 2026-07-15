@@ -119,3 +119,25 @@ export async function saveSettings(value) {
   const { error } = await supabase.from('settings').upsert({ id: 'cycle_dates', value }, { onConflict: 'id' })
   if (error) throw error
 }
+
+// ── CYCLES ───────────────────────────────────────────────────────────────────
+export async function getCycles() {
+  const { data, error } = await supabase
+    .from('cycles')
+    .select('*')
+    .order('created_at', { ascending: true })
+  if (error) return []
+  return data
+}
+
+export async function upsertCycle(cycle) {
+  const { error } = await supabase
+    .from('cycles')
+    .upsert(cycle, { onConflict: 'id' })
+  if (error) throw error
+}
+
+export async function deleteCycle(id) {
+  const { error } = await supabase.from('cycles').delete().eq('id', id)
+  if (error) throw error
+}

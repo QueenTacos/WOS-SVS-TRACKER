@@ -141,3 +141,15 @@ export async function deleteCycle(id) {
   const { error } = await supabase.from('cycles').delete().eq('id', id)
   if (error) throw error
 }
+
+// ── SITE CONTENT ─────────────────────────────────────────────────────────────
+export async function getSiteContent() {
+  const { data, error } = await supabase.from('settings').select('*').eq('id', 'site_content').single()
+  if (error) return null
+  return data.value
+}
+
+export async function saveSiteContent(value) {
+  const { error } = await supabase.from('settings').upsert({ id: 'site_content', value }, { onConflict: 'id' })
+  if (error) throw error
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { getAllEntries, getEntry, upsertEntry, deleteEntry, getAdmins, addAdmin, removeAdmin, findAdmin, getSettings, saveSettings, getCycles, upsertCycle, deleteCycle } from "./supabase.js";
+import { getAllEntries, getEntry, upsertEntry, deleteEntry, getAdmins, addAdmin, removeAdmin, findAdmin, getSettings, saveSettings, getCycles, upsertCycle, deleteCycle, getSiteContent, saveSiteContent } from "./supabase.js";
 
 const SVS_PRIORITY=new Set([
   "Fire Crystal","Refined Fire Crystal","Fire Crystal Shard","Fire Crystal Ember",
@@ -231,15 +231,14 @@ export default function App(){
   const[entries,setEntries]=useState([]);
   const[loading,setLoading]=useState(true);
   const[toast,setToast]=useState(null);
+  const[siteContent,setSiteContent]=useState(null);
   const phase=getPhase();
 
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),3500);};
 
   useEffect(()=>{
-    // Load cycle dates from DB on startup
-    getSettings().then(saved=>{
-      if(saved) CYCLE_DATES={...DEFAULT_DATES,...saved};
-    }).catch(()=>{});
+    getSettings().then(saved=>{ if(saved) CYCLE_DATES={...DEFAULT_DATES,...saved}; }).catch(()=>{});
+    getSiteContent().then(saved=>{ if(saved) setSiteContent(saved); }).catch(()=>{});
     loadEntries();
   },[]);
   const loadEntries=async()=>{
@@ -282,7 +281,7 @@ export default function App(){
       `}</style>
       <Header page={page} setPage={setPage} adminUser={adminUser} setAdminUser={setAdminUser} playerUser={playerUser} setPlayerUser={setPlayerUser} phase={phase}/>
       <main style={{maxWidth:1100,margin:"0 auto",padding:"24px 14px 60px"}}>
-        {page==="leaderboard"&&<LeaderboardPage entries={entries} loading={loading}/>}
+        {page==="leaderboard"&&<LeaderboardPage entries={entries} loading={loading} siteContent={siteContent}/>}
         {page==="submit"&&<SubmitPage entries={entries} loadEntries={loadEntries} showToast={showToast} phase={phase} playerUser={playerUser} setPage={setPage} adminUser={adminUser}/>}
         {page==="howto"&&<HowToPage setPage={setPage} phase={phase}/>}
         {page==="login"&&<PlayerLogin setPlayerUser={setPlayerUser} setPage={setPage} showToast={showToast} loadEntries={loadEntries}/>}
@@ -890,7 +889,23 @@ function LockedBagView({items,label}){
 }
 
 // ─── LEADERBOARD ──────────────────────────────────────────────────────────────
-function LeaderboardPage({entries,loading}){
+
+const DEFAULT_SITE_CONTENT = {
+  title: "❄️ WOS SVS Prep Week — Bag Growth Competition",
+  description: "This is a state-wide competition running for SVS Prep Week. The goal is simple: grow your bag as much as possible between now and the final submission deadline.",
+  how_it_works: "Submit your bag at the start of the competition to lock in your baseline. Keep adding items throughout the prep period. Submit your final bag on July 10–12 to lock in your ending totals. Growth is calculated as a percentage increase from your starting bag to your final bag.",
+  prize: "The **top 2 players** with the highest overall bag growth percentage will earn **Frost Stars**.",
+  what_counts: "Focus on Fire Crystals, Mithril, and Speedups — these are the items that matter most during SVS prep days and will drive your score the highest.",
+  rules: [
+    "You must submit a baseline bag between June 20 – July 1 to be eligible",
+    "Final bag submissions are July 10 – 12 only",
+    "Only your first and final submissions count toward the score — updates in between are for the leaderboard only",
+    "All submissions are verified by admins"
+  ],
+  footer: "Good luck and may the best bag win! ❄️🏆"
+};
+
+function LeaderboardPage({entries,loading,siteContent}){
   const[tab,setTab]=useState("players");
 
   const calcGrowth=(entry)=>{
@@ -928,35 +943,38 @@ function LeaderboardPage({entries,loading}){
 
   return(
     <div className="fade">
-      {/* Competition Banner */}
-      <div style={{background:"linear-gradient(135deg,#0f2030,#162840)",border:`1px solid ${ACCENT}44`,borderRadius:12,padding:"20px 24px",marginBottom:24}}>
-        <h2 style={{fontSize:20,fontWeight:700,color:TEXT,marginBottom:6}}>❄️ WOS SVS Prep Week — Bag Growth Competition</h2>
-        <p style={{color:MUTED,fontSize:13,lineHeight:1.7,marginBottom:16}}>This is a state-wide competition running for SVS Prep Week. The goal is simple: grow your bag as much as possible between now and the final submission deadline.</p>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:16}}>
-          <div style={{background:`${ACCENT}12`,border:`1px solid ${ACCENT}33`,borderRadius:8,padding:"12px 14px"}}>
-            <div style={{fontSize:12,fontWeight:700,color:ACCENT,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>⚙️ How It Works</div>
-            <p style={{fontSize:12,color:MUTED,lineHeight:1.7}}>Submit your bag at the start to lock in your baseline. Keep adding items throughout the prep period. Submit your final bag July 10–12 to lock in your ending totals. Growth is calculated as a percentage increase from your starting bag to your final bag.</p>
+      {/* Competition Banner — dynamic */}
+      {(()=>{
+        const c={...DEFAULT_SITE_CONTENT,...(siteContent||{})};
+        const rules=Array.isArray(c.rules)?c.rules:DEFAULT_SITE_CONTENT.rules;
+        return(
+          <div style={{background:"linear-gradient(135deg,#1E0F3A,#2A1A55)",border:`1px solid ${ACCENT}44`,borderRadius:12,padding:"20px 24px",marginBottom:24}}>
+            <h2 style={{fontSize:20,fontWeight:700,color:TEXT,marginBottom:6}}>{c.title}</h2>
+            <p style={{color:MUTED,fontSize:13,lineHeight:1.7,marginBottom:16}}>{c.description}</p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:16}}>
+              <div style={{background:`${ACCENT}12`,border:`1px solid ${ACCENT}33`,borderRadius:8,padding:"12px 14px"}}>
+                <div style={{fontSize:12,fontWeight:700,color:ACCENT,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>⚙️ How It Works</div>
+                <p style={{fontSize:12,color:MUTED,lineHeight:1.7}}>{c.how_it_works}</p>
+              </div>
+              <div style={{background:`${GOLD}12`,border:`1px solid ${GOLD}44`,borderRadius:8,padding:"12px 14px"}}>
+                <div style={{fontSize:12,fontWeight:700,color:GOLD,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>🏆 The Prize</div>
+                <p style={{fontSize:12,color:MUTED,lineHeight:1.7}}>{c.prize}</p>
+              </div>
+              <div style={{background:`${GREEN}10`,border:`1px solid ${GREEN}33`,borderRadius:8,padding:"12px 14px"}}>
+                <div style={{fontSize:12,fontWeight:700,color:GREEN,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>⭐ What Counts</div>
+                <p style={{fontSize:12,color:MUTED,lineHeight:1.7}}>{c.what_counts}</p>
+              </div>
+              <div style={{background:`#1a0f3a`,border:`1px solid ${BORDER}`,borderRadius:8,padding:"12px 14px"}}>
+                <div style={{fontSize:12,fontWeight:700,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>📋 Rules</div>
+                <ul style={{fontSize:12,color:MUTED,lineHeight:1.8,paddingLeft:14}}>
+                  {rules.map((r,i)=><li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            </div>
+            <p style={{fontSize:13,color:ACCENT,fontWeight:600,textAlign:"center"}}>{c.footer}</p>
           </div>
-          <div style={{background:`${GOLD}12`,border:`1px solid ${GOLD}44`,borderRadius:8,padding:"12px 14px"}}>
-            <div style={{fontSize:12,fontWeight:700,color:GOLD,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>🏆 The Prize</div>
-            <p style={{fontSize:12,color:MUTED,lineHeight:1.7}}>The <strong style={{color:GOLD}}>top 2 players</strong> with the highest overall bag growth percentage will earn <strong style={{color:GOLD}}>Frost Stars</strong>.</p>
-          </div>
-          <div style={{background:`${GREEN}10`,border:`1px solid ${GREEN}33`,borderRadius:8,padding:"12px 14px"}}>
-            <div style={{fontSize:12,fontWeight:700,color:GREEN,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>⭐ What Counts</div>
-            <p style={{fontSize:12,color:MUTED,lineHeight:1.7}}>Focus on <strong style={{color:TEXT}}>Fire Crystals, Mithril, and Speedups</strong> — these are the items that matter most during SVS prep days and will drive your score the highest.</p>
-          </div>
-          <div style={{background:`#1a1a2e`,border:`1px solid ${BORDER}`,borderRadius:8,padding:"12px 14px"}}>
-            <div style={{fontSize:12,fontWeight:700,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>📋 Rules</div>
-            <ul style={{fontSize:12,color:MUTED,lineHeight:1.8,paddingLeft:14}}>
-              <li>Submit baseline bag June 20 – July 1 to be eligible</li>
-              <li>Final bag submissions July 10 – 12 only</li>
-              <li>Only first and final submissions count toward score</li>
-              <li>All submissions are verified by admins</li>
-            </ul>
-          </div>
-        </div>
-        <p style={{fontSize:13,color:ACCENT,fontWeight:600,textAlign:"center"}}>Good luck and may the best bag win! ❄️🏆</p>
-      </div>
+        );
+      })()}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18,flexWrap:"wrap",gap:10}}>
         <div>
           <h2 style={{fontSize:22,fontWeight:700,color:GOLD}}>🏆 Leaderboard</h2>
@@ -1104,8 +1122,102 @@ function BagPreviewBar({playerUser,phase,filledCount,bag,setBag,playerState,exis
 
 
 
+
+// ─── SITE CONTENT PANEL ───────────────────────────────────────────────────────
+function SiteContentPanel({showToast}){
+  const[c,setC]=useState({...DEFAULT_SITE_CONTENT});
+  const[loading,setLoading]=useState(true);
+  const[saving,setSaving]=useState(false);
+  const[newRule,setNewRule]=useState("");
+
+  useEffect(()=>{
+    getSiteContent().then(saved=>{ if(saved) setC({...DEFAULT_SITE_CONTENT,...saved,rules:saved.rules||DEFAULT_SITE_CONTENT.rules}); })
+    .catch(()=>{}).finally(()=>setLoading(false));
+  },[]);
+
+  const handleSave=async()=>{
+    setSaving(true);
+    try{ await saveSiteContent(c); showToast("Site content saved!"); }
+    catch{ showToast("Failed to save.","error"); }
+    finally{ setSaving(false); }
+  };
+
+  const addRule=()=>{
+    if(!newRule.trim()) return;
+    setC(p=>({...p,rules:[...p.rules,newRule.trim()]}));
+    setNewRule("");
+  };
+
+  const removeRule=(i)=>setC(p=>({...p,rules:p.rules.filter((_,j)=>j!==i)}));
+  const moveRule=(i,dir)=>{
+    const rules=[...c.rules];
+    const j=i+dir;
+    if(j<0||j>=rules.length) return;
+    [rules[i],rules[j]]=[rules[j],rules[i]];
+    setC(p=>({...p,rules}));
+  };
+
+  if(loading) return <p style={{color:MUTED,padding:20,textAlign:"center"}}>Loading…</p>;
+
+  const fields=[
+    {key:"title",label:"Competition Title",rows:1},
+    {key:"description",label:"Description (intro paragraph)",rows:3},
+    {key:"how_it_works",label:"How It Works",rows:4},
+    {key:"prize",label:"The Prize",rows:2},
+    {key:"what_counts",label:"What Counts",rows:3},
+    {key:"footer",label:"Footer Text",rows:1},
+  ];
+
+  return(
+    <div className="fade">
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+        <h3 style={{fontSize:16,fontWeight:700,color:ACCENT}}>✏️ Site Content</h3>
+        <div style={{display:"flex",gap:8}}>
+          <button className="bg" onClick={()=>setC({...DEFAULT_SITE_CONTENT})}>Reset to Defaults</button>
+          <button className="bp" disabled={saving} onClick={handleSave}>{saving?"Saving…":"Save Content ✓"}</button>
+        </div>
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {fields.map(({key,label,rows})=>(
+          <div key={key} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:14}}>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>{label}</label>
+            {rows===1?(
+              <input className="fi" value={c[key]||""} onChange={e=>setC(p=>({...p,[key]:e.target.value}))}/>
+            ):(
+              <textarea className="fi" rows={rows} value={c[key]||""} onChange={e=>setC(p=>({...p,[key]:e.target.value}))}
+                style={{resize:"vertical",lineHeight:1.6}}/>
+            )}
+          </div>
+        ))}
+
+        {/* Rules editor */}
+        <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:14}}>
+          <label style={{display:"block",fontSize:11,fontWeight:700,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>📋 Rules</label>
+          <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
+            {(c.rules||[]).map((rule,i)=>(
+              <div key={i} style={{display:"flex",gap:8,alignItems:"center",background:CARD2,border:`1px solid ${BORDER}`,borderRadius:7,padding:"7px 10px"}}>
+                <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                  <button onClick={()=>moveRule(i,-1)} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:10,lineHeight:1,padding:"1px 4px"}}>▲</button>
+                  <button onClick={()=>moveRule(i,1)} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:10,lineHeight:1,padding:"1px 4px"}}>▼</button>
+                </div>
+                <input className="fi" value={rule} onChange={e=>{const r=[...c.rules];r[i]=e.target.value;setC(p=>({...p,rules:r}));}} style={{flex:1}}/>
+                <button className="bd" onClick={()=>removeRule(i)} style={{padding:"4px 10px",fontSize:12}}>×</button>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <input className="fi" value={newRule} onChange={e=>setNewRule(e.target.value)} placeholder="Add a new rule…" onKeyDown={e=>e.key==="Enter"&&addRule()} style={{flex:1}}/>
+            <button className="bp" onClick={addRule} style={{padding:"7px 16px"}}>Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── CYCLES PANEL ────────────────────────────────────────────────────────────
-function CyclesPanel({showToast}){
+function CyclesPanel({showToast,isOwner}){
   const[cycles,setCycles]=useState([]);
   const[loading,setLoading]=useState(true);
   const[expanded,setExpanded]=useState(null);
@@ -1200,6 +1312,7 @@ function CyclesPanel({showToast}){
               onDelete={null}
               cycleStatus={cycleStatus}
               showToast={showToast}
+              isOwner={isOwner}
             />
           )}
 
@@ -1214,10 +1327,11 @@ function CyclesPanel({showToast}){
                 onToggle={()=>setExpanded(expanded===cycle.id?null:cycle.id)}
                 onSave={handleSave}
                 onCancel={()=>setExpanded(null)}
-                onToggleHide={toggleHide}
-                onDelete={()=>setDeleteConfirm(cycle.id)}
+                onToggleHide={isOwner?toggleHide:null}
+                onDelete={isOwner?()=>setDeleteConfirm(cycle.id):null}
                 cycleStatus={cycleStatus}
                 showToast={showToast}
+                isOwner={isOwner}
               />
             ))
           )}
@@ -1241,7 +1355,7 @@ function CyclesPanel({showToast}){
   );
 }
 
-function CycleCard({cycle,isNew,dateFields,expanded,saving,onToggle,onSave,onCancel,onToggleHide,onDelete,cycleStatus}){
+function CycleCard({cycle,isNew,dateFields,expanded,saving,onToggle,onSave,onCancel,onToggleHide,onDelete,cycleStatus,isOwner}){
   const[data,setData]=useState({...cycle});
   const status=cycleStatus(data);
   const isSaving=saving===data.id;
@@ -1265,13 +1379,14 @@ function CycleCard({cycle,isNew,dateFields,expanded,saving,onToggle,onSave,onCan
           </div>
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}} onClick={e=>e.stopPropagation()}>
-          {!isNew&&onToggleHide&&(
+          {!isNew&&isOwner&&onToggleHide&&(
             <button className="bg" onClick={()=>onToggleHide(data)}
               style={{fontSize:12,borderColor:data.hidden?GREEN:MUTED,color:data.hidden?GREEN:MUTED}}>
               {data.hidden?"👁 Show":"🙈 Hide"}
             </button>
           )}
-          {!isNew&&onDelete&&<button className="bd" onClick={onDelete}>Delete</button>}
+          {!isNew&&isOwner&&onDelete&&<button className="bd" onClick={onDelete}>Delete</button>}
+          {!isNew&&!isOwner&&<span style={{fontSize:10,color:MUTED,fontStyle:"italic"}}>Owner only: hide/delete</span>}
           {!isNew&&<span style={{color:MUTED,fontSize:16}}>{expanded?"▲":"▼"}</span>}
         </div>
       </div>
@@ -1439,7 +1554,8 @@ function AdminPanel({entries,loadEntries,showToast,adminUser,isOwner}){
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button className="bg" onClick={()=>setTab("entries")} style={tab==="entries"?{borderColor:ACCENT,color:ACCENT}:{}}>Entries ({entries.length})</button>
-          {isOwner&&<button className="bg" onClick={()=>setTab("cycles")} style={tab==="cycles"?{borderColor:GREEN,color:GREEN}:{}}>🔄 Cycles</button>}
+          <button className="bg" onClick={()=>setTab("cycles")} style={tab==="cycles"?{borderColor:GREEN,color:GREEN}:{}}>🔄 Cycles</button>
+          <button className="bg" onClick={()=>setTab("content")} style={tab==="content"?{borderColor:ACCENT,color:ACCENT}:{}}>✏️ Site Content</button>
           {isOwner&&<button className="bg" onClick={()=>setTab("admins")} style={tab==="admins"?{borderColor:GOLD,color:GOLD}:{}}>Manage Admins</button>}
         </div>
       </div>
@@ -1478,7 +1594,8 @@ function AdminPanel({entries,loadEntries,showToast,adminUser,isOwner}){
         </div>
       ))}
 
-      {tab==="cycles"&&isOwner&&<CyclesPanel showToast={showToast}/>}
+      {tab==="cycles"&&<CyclesPanel showToast={showToast} isOwner={isOwner}/>}
+      {tab==="content"&&<SiteContentPanel showToast={showToast} />}
       {tab==="admins"&&isOwner&&(
         <div>
           <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,padding:20,marginBottom:16,maxWidth:480}}>

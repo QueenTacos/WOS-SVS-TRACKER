@@ -283,7 +283,7 @@ export default function App(){
       <main style={{maxWidth:1100,margin:"0 auto",padding:"24px 14px 60px"}}>
         {page==="leaderboard"&&<LeaderboardPage entries={entries} loading={loading} siteContent={siteContent}/>}
         {page==="submit"&&<SubmitPage entries={entries} loadEntries={loadEntries} showToast={showToast} phase={phase} playerUser={playerUser} setPage={setPage} adminUser={adminUser}/>}
-        {page==="howto"&&<HowToPage setPage={setPage} phase={phase}/>}
+        {page==="howto"&&<HowToPage setPage={setPage} phase={phase} siteContent={siteContent}/>}
         {page==="login"&&<PlayerLogin setPlayerUser={setPlayerUser} setPage={setPage} showToast={showToast} loadEntries={loadEntries}/>}
         {page==="admin"&&!adminUser&&<AdminLogin setAdminUser={setAdminUser} setPage={setPage} showToast={showToast}/>}
         {page==="adminPanel"&&adminUser&&<AdminPanel entries={entries} loadEntries={loadEntries} showToast={showToast} adminUser={adminUser} isOwner={adminUser.role==="owner"}/>}
@@ -356,68 +356,40 @@ function Header({page,setPage,adminUser,setAdminUser,playerUser,setPlayerUser,ph
 }
 
 // ─── HOW TO PAGE ──────────────────────────────────────────────────────────────
-function HowToPage({setPage,phase}){
+function HowToPage({setPage,phase,siteContent}){
+  const c={...DEFAULT_SITE_CONTENT,...(siteContent||{})};
+  const rules=Array.isArray(c.rules)?c.rules:DEFAULT_SITE_CONTENT.rules;
   return(
     <div className="fade" style={{maxWidth:700,margin:"0 auto"}}>
       <h2 style={{fontSize:24,fontWeight:700,color:TEXT,marginBottom:4}}>📋 How to Submit Your Bag</h2>
-      <p style={{color:MUTED,fontSize:14,marginBottom:28}}>Everything you need to know about tracking your bag for SVS prep.</p>
+      <p style={{color:MUTED,fontSize:14,marginBottom:28}}>{c.howto_intro||"Everything you need to know about tracking your bag for SVS prep."}</p>
 
       <div style={{display:"flex",flexDirection:"column",gap:16}}>
-        {/* Step 1 */}
-        <StepCard num="1" title="Create Your Account" color={ACCENT}>
-          <p>Click <strong style={{color:ACCENT}}>Player Login</strong> in the nav. Choose <strong>Create Account</strong> and fill in:</p>
-          <ul style={{marginTop:8,paddingLeft:18,display:"flex",flexDirection:"column",gap:4}}>
-            <li>Your in-game <strong>Player Name</strong></li>
-            <li>Your <strong>Gamer ID</strong> (found in your profile)</li>
-            <li>Your <strong>Alliance Tag</strong> (e.g. [ICE])</li>
-            <li>A <strong>4-digit PIN</strong> you'll use to log in each time</li>
-          </ul>
-          <p style={{marginTop:8,color:MUTED,fontSize:12}}>⚠️ Remember your PIN — there's no recovery if you forget it. Contact an admin.</p>
+        <StepCard num="1" title={c.step1_title||"Create Your Account"} color={ACCENT}>
+          <p style={{whiteSpace:"pre-wrap"}}>{c.step1_text||"Click Player Login in the nav. Choose Create Account and fill in your Player Name, Gamer ID, Alliance Tag, and a 4-digit PIN.
+
+⚠️ Remember your PIN — there's no recovery if you forget it. Contact an admin."}</p>
         </StepCard>
 
-        {/* Step 2 */}
-        <StepCard num="2" title="Submit Your Bag" color={GREEN}>
-          <p>Once logged in, go to <strong style={{color:GREEN}}>Submit Bag</strong>. You can:</p>
-          <ul style={{marginTop:8,paddingLeft:18,display:"flex",flexDirection:"column",gap:4}}>
-            <li>📸 <strong>Upload a screenshot</strong> of your bag (optional — for verification)</li>
-            <li>✏️ <strong>Manually enter quantities</strong> for each item</li>
-            <li>Update as often as you like — the site tracks your <strong>first</strong> and <strong>most recent</strong> submission automatically</li>
-          </ul>
-          <div style={{marginTop:12,background:`${GOLD}10`,border:`1px solid ${GOLD}33`,borderRadius:8,padding:"10px 14px"}}>
-            <span style={{color:GOLD,fontWeight:700,fontSize:12}}>⭐ SVS Priority Items</span>
-            <p style={{fontSize:12,color:MUTED,marginTop:4}}>Items marked with a gold star are used during SVS prep days. Make sure to fill these in accurately — they count toward your growth score.</p>
-          </div>
+        <StepCard num="2" title={c.step2_title||"Submit Your Bag"} color={GREEN}>
+          <p style={{whiteSpace:"pre-wrap"}}>{c.step2_text||"Once logged in, go to Submit Bag. Upload a screenshot and/or manually enter quantities for each item.
+
+⭐ Items marked with a gold star are SVS priority items — fill these in accurately as they count toward your growth score."}</p>
         </StepCard>
 
-        {/* Step 3 */}
-        <StepCard num="3" title="Submission Windows" color={ORANGE}>
-          <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
-            {[
-              {label:"Cycle 1 — Bag Submissions",dates:"June 20 – July 12",color:GREEN,desc:"Submit and update your bag freely."},
-              {label:"Prep Week (Locked)",dates:"July 13–17",color:RED,desc:"No submissions during this period. Use your items!"},
-              {label:"Cycle 2 — Bag Submissions",dates:"July 18 – August 9",color:GREEN,desc:"Submit again after SVS. Growth is calculated vs Cycle 1."},
-              {label:"Prep Week (Locked)",dates:"August 10–14",color:RED,desc:"Locked again for next prep."},
-            ].map(r=>(
-              <div key={r.dates} style={{display:"flex",gap:12,alignItems:"flex-start"}}>
-                <span style={{width:8,height:8,borderRadius:"50%",background:r.color,display:"inline-block",flexShrink:0,marginTop:5}}/>
-                <div>
-                  <span style={{fontWeight:700,color:r.color,fontSize:13}}>{r.label}</span>
-                  <span style={{color:MUTED,fontSize:12,marginLeft:8}}>{r.dates}</span>
-                  <p style={{fontSize:12,color:MUTED,marginTop:2}}>{r.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+        <StepCard num="3" title={c.step3_title||"Submission Windows"} color={ORANGE}>
+          <p style={{whiteSpace:"pre-wrap",marginBottom:10}}>{c.step3_text||"Baseline window: Submit your starting bag.
+Vanity period: Keep updating to climb the leaderboard.
+Final window: Submit your ending bag for the contest."}</p>
+          <ScheduleBlock/>
         </StepCard>
 
-        {/* Step 4 */}
-        <StepCard num="4" title="Leaderboard & Winning" color={GOLD}>
-          <p>The <strong style={{color:GOLD}}>Leaderboard</strong> shows players ranked by <strong>overall bag growth %</strong> between Cycle 1 and Cycle 2.</p>
-          <ul style={{marginTop:8,paddingLeft:18,display:"flex",flexDirection:"column",gap:4}}>
-            <li>🥇🥈 <strong>Top 2 players</strong> by growth % win prizes</li>
-            <li>Alliance standings are also tracked</li>
-            <li>Only <strong>name and alliance tag</strong> are visible on the public leaderboard</li>
-          </ul>
+        <StepCard num="4" title={c.step4_title||"Leaderboard & Winning"} color={GOLD}>
+          <p style={{whiteSpace:"pre-wrap"}}>{c.step4_text||"The Leaderboard shows players ranked by overall bag growth %.
+
+🥇🥈 Top 2 players by growth % win Frost Stars.
+Alliance standings are also tracked.
+Only name and alliance tag are visible on the public leaderboard."}</p>
         </StepCard>
       </div>
 
@@ -891,10 +863,11 @@ function LockedBagView({items,label}){
 // ─── LEADERBOARD ──────────────────────────────────────────────────────────────
 
 const DEFAULT_SITE_CONTENT = {
+  // Leaderboard page
   title: "❄️ WOS SVS Prep Week — Bag Growth Competition",
   description: "This is a state-wide competition running for SVS Prep Week. The goal is simple: grow your bag as much as possible between now and the final submission deadline.",
   how_it_works: "Submit your bag at the start of the competition to lock in your baseline. Keep adding items throughout the prep period. Submit your final bag on July 10–12 to lock in your ending totals. Growth is calculated as a percentage increase from your starting bag to your final bag.",
-  prize: "The **top 2 players** with the highest overall bag growth percentage will earn **Frost Stars**.",
+  prize: "The top 2 players with the highest overall bag growth percentage will earn Frost Stars.",
   what_counts: "Focus on Fire Crystals, Mithril, and Speedups — these are the items that matter most during SVS prep days and will drive your score the highest.",
   rules: [
     "You must submit a baseline bag between June 20 – July 1 to be eligible",
@@ -902,7 +875,17 @@ const DEFAULT_SITE_CONTENT = {
     "Only your first and final submissions count toward the score — updates in between are for the leaderboard only",
     "All submissions are verified by admins"
   ],
-  footer: "Good luck and may the best bag win! ❄️🏆"
+  footer: "Good luck and may the best bag win! ❄️🏆",
+  // How To page
+  howto_intro: "Everything you need to know about tracking your bag for SVS prep.",
+  step1_title: "Create Your Account",
+  step1_text: "Click Player Login in the nav. Choose Create Account and fill in your Player Name, Gamer ID, Alliance Tag, and a 4-digit PIN.\n\n⚠️ Remember your PIN — there\'s no recovery if you forget it. Contact an admin.",
+  step2_title: "Submit Your Bag",
+  step2_text: "Once logged in, go to Submit Bag. Upload a screenshot and/or manually enter quantities for each item.\n\n⭐ Items marked with a gold star are SVS priority items — fill these in accurately as they count toward your growth score.",
+  step3_title: "Submission Windows",
+  step3_text: "Baseline window: Submit your starting bag to lock in your baseline.\nVanity period: Keep updating your bag to climb the live leaderboard.\nFinal window: Submit your ending bag July 10–12 for the official contest score.",
+  step4_title: "Leaderboard & Winning",
+  step4_text: "The Leaderboard shows players ranked by overall bag growth %.\n\n🥇🥈 Top 2 players by growth % win Frost Stars.\nAlliance standings are also tracked.\nOnly name and alliance tag are visible on the public leaderboard.",
 };
 
 function LeaderboardPage({entries,loading,siteContent}){
@@ -1160,12 +1143,21 @@ function SiteContentPanel({showToast}){
   if(loading) return <p style={{color:MUTED,padding:20,textAlign:"center"}}>Loading…</p>;
 
   const fields=[
-    {key:"title",label:"Competition Title",rows:1},
-    {key:"description",label:"Description (intro paragraph)",rows:3},
-    {key:"how_it_works",label:"How It Works",rows:4},
-    {key:"prize",label:"The Prize",rows:2},
-    {key:"what_counts",label:"What Counts",rows:3},
-    {key:"footer",label:"Footer Text",rows:1},
+    {key:"title",label:"🏆 Competition Title",rows:1,section:"Leaderboard Page"},
+    {key:"description",label:"Description",rows:3,section:"Leaderboard Page"},
+    {key:"how_it_works",label:"How It Works",rows:4,section:"Leaderboard Page"},
+    {key:"prize",label:"The Prize",rows:2,section:"Leaderboard Page"},
+    {key:"what_counts",label:"What Counts",rows:3,section:"Leaderboard Page"},
+    {key:"footer",label:"Footer Text",rows:1,section:"Leaderboard Page"},
+    {key:"howto_intro",label:"📋 How To Page — Intro",rows:2,section:"How To Page"},
+    {key:"step1_title",label:"Step 1 Title",rows:1,section:"How To Page"},
+    {key:"step1_text",label:"Step 1 Text",rows:4,section:"How To Page"},
+    {key:"step2_title",label:"Step 2 Title",rows:1,section:"How To Page"},
+    {key:"step2_text",label:"Step 2 Text",rows:4,section:"How To Page"},
+    {key:"step3_title",label:"Step 3 Title",rows:1,section:"How To Page"},
+    {key:"step3_text",label:"Step 3 Text",rows:4,section:"How To Page"},
+    {key:"step4_title",label:"Step 4 Title",rows:1,section:"How To Page"},
+    {key:"step4_text",label:"Step 4 Text",rows:4,section:"How To Page"},
   ];
 
   return(
@@ -1179,17 +1171,24 @@ function SiteContentPanel({showToast}){
       </div>
 
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
-        {fields.map(({key,label,rows})=>(
-          <div key={key} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:14}}>
-            <label style={{display:"block",fontSize:11,fontWeight:700,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>{label}</label>
-            {rows===1?(
-              <input className="fi" value={c[key]||""} onChange={e=>setC(p=>({...p,[key]:e.target.value}))}/>
-            ):(
-              <textarea className="fi" rows={rows} value={c[key]||""} onChange={e=>setC(p=>({...p,[key]:e.target.value}))}
-                style={{resize:"vertical",lineHeight:1.6}}/>
-            )}
-          </div>
-        ))}
+        {fields.reduce((acc,field,i)=>{
+          const prev=fields[i-1];
+          if(!prev||prev.section!==field.section){
+            acc.push(<div key={`section_${field.section}`} style={{fontSize:12,fontWeight:700,color:ORANGE,textTransform:"uppercase",letterSpacing:"0.1em",marginTop:i>0?8:0,marginBottom:4}}>{field.section}</div>);
+          }
+          acc.push(
+            <div key={field.key} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:14}}>
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>{field.label}</label>
+              {field.rows===1?(
+                <input className="fi" value={c[field.key]||""} onChange={e=>setC(p=>({...p,[field.key]:e.target.value}))}/>
+              ):(
+                <textarea className="fi" rows={field.rows} value={c[field.key]||""} onChange={e=>setC(p=>({...p,[field.key]:e.target.value}))}
+                  style={{resize:"vertical",lineHeight:1.6}}/>
+              )}
+            </div>
+          );
+          return acc;
+        },[])}
 
         {/* Rules editor */}
         <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:14}}>

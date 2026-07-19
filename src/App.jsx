@@ -1107,7 +1107,7 @@ function BagPreviewBar({playerUser,phase,filledCount,bag,setBag,playerState,exis
 
 
 // ─── SITE CONTENT PANEL ───────────────────────────────────────────────────────
-function SiteContentPanel({showToast}){
+function SiteContentPanel({showToast,setSiteContent}){
   const[c,setC]=useState({...DEFAULT_SITE_CONTENT});
   const[loading,setLoading]=useState(true);
   const[saving,setSaving]=useState(false);
@@ -1120,7 +1120,11 @@ function SiteContentPanel({showToast}){
 
   const handleSave=async()=>{
     setSaving(true);
-    try{ await saveSiteContent(c); showToast("Site content saved!"); }
+    try{
+      await saveSiteContent(c);
+      if(setSiteContent) setSiteContent(c); // update App state so pages refresh immediately
+      showToast("Site content saved!");
+    }
     catch{ showToast("Failed to save.","error"); }
     finally{ setSaving(false); }
   };
@@ -1594,7 +1598,7 @@ function AdminPanel({entries,loadEntries,showToast,adminUser,isOwner}){
       ))}
 
       {tab==="cycles"&&<CyclesPanel showToast={showToast} isOwner={isOwner}/>}
-      {tab==="content"&&<SiteContentPanel showToast={showToast} />}
+      {tab==="content"&&<SiteContentPanel showToast={showToast} setSiteContent={setSiteContent}/>}
       {tab==="admins"&&isOwner&&(
         <div>
           <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,padding:20,marginBottom:16,maxWidth:480}}>

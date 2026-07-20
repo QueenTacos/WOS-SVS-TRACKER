@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { saveSettings } from '../supabase.js';
+import { archiveCycleResults, resetEntryForNewCycle, saveSettings } from '../supabase.js';
 import { CYCLE_DATES, DEFAULT_DATES, getPhaseFromDates, setCycleDates } from '../lib/cycles.js';
 import { ACCENT, BORDER, CARD, CARD2, GOLD, GREEN, MUTED, ORANGE, RED } from '../lib/theme.js';
 
-export function DateSettingsPanel({showToast}){
+export function DateSettingsPanel({showToast,entries,loadEntries}){
   const[dates,setDates]=useState({...CYCLE_DATES});
   const[saving,setSaving]=useState(false);
+  const[archiveLabel,setArchiveLabel]=useState("");
+  const[confirmArchive,setConfirmArchive]=useState(false);
+  const[archiving,setArchiving]=useState(false);
 
   const fields=[
     {key:"c1_baseline_start",label:"Cycle 1 — Baseline Window Opens",color:GREEN},
@@ -31,6 +34,22 @@ export function DateSettingsPanel({showToast}){
   const resetDefaults=()=>{
     setDates({...DEFAULT_DATES});
     showToast("Reset to defaults — click Save to apply.");
+  };
+
+  const handleArchiveAndReset=async()=>{
+    if(!archiveLabel.trim()){ showToast("Enter a name for this cycle before archiving.","error"); return; }
+    setArchiving(true);
+    try{
+      await archiveCycleResults(archiveLabel.trim(), entries);
+      for(const entry of entries){
+        if(entry.cycle1_firstAt) await resetEntryForNewCycle(entry.id);
+      }
+      await loadEntries();
+      showToast(`Archived as "${archiveLabel.trim()}" — all players reset for the new cycle.`);
+      setArchiveLabel("");
+      setConfirmArchive(false);
+    }catch{ showToast("Something went wrong partway through. Check the History and Entries tabs before trying again.","error"); await loadEntries(); }
+    finally{ setArchiving(false); }
   };
 
   // Preview what phase would be active with current settings
@@ -74,6 +93,34 @@ export function DateSettingsPanel({showToast}){
               />
             </div>
           ))}
+        </div>
+      </div>
+
+      <div style={{background:CARD,border:`1px solid ${RED}55`,borderRadius:12,padding:20}}>
+        <h3 style={{fontSize:15,fontWeight:700,color:RED,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>🔒 Archive &amp; Start New Cycle</h3>
+        <p style={{color:MUTED,fontSize:12,marginBottom:14}}>
+          When the current cycle is over, use this to save everyone's results to the <strong>Past Cycles</strong> history, then wipe every player's tracked bag so the next cycle starts fresh. This cannot be undone — double check dates above are set for the new cycle first.
+        </p>
+        <label style={{display:"block",fontSize:11,color:MUTED,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4,fontWeight:600}}>Name this cycle (for the history list)</label>
+        <input
+          className="fi"
+          style={{marginBottom:12,maxWidth:320}}
+          placeholder='e.g. "Cycle 1 — June 2026"'
+          value={archiveLabel}
+          onChange={e=>setArchiveLabel(e.target.value)}
+        />
+        <div>
+          {!confirmArchive?(
+            <button className="bg" style={{borderColor:RED,color:RED}} onClick={()=>setConfirmArchive(true)}>Archive &amp; Start New Cycle…</button>
+          ):(
+            <div style={{background:"#7f1d1d33",border:`1px solid ${RED}`,borderRadius:8,padding:14}}>
+              <p style={{fontSize:13,fontWeight:700,color:RED,marginBottom:10}}>Are you sure? This resets every player's bag data right now.</p>
+              <div style={{display:"flex",gap:8}}>
+                <button className="bg" onClick={()=>setConfirmArchive(false)} disabled={archiving}>Cancel</button>
+                <button className="bd" onClick={handleArchiveAndReset} disabled={archiving}>{archiving?"Working…":"Yes, Archive & Reset"}</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

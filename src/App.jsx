@@ -72,7 +72,7 @@ export default function App(){
         {page==="howto"&&<HowToPage setPage={setPage} phase={phase} siteContent={siteContent}/>}
         {page==="login"&&<PlayerLogin setPlayerUser={setPlayerUser} setPage={setPage} showToast={showToast} loadEntries={loadEntries}/>}
         {page==="admin"&&!adminUser&&<AdminLogin setAdminUser={setAdminUser} setPage={setPage} showToast={showToast}/>}
-        {page==="adminPanel"&&adminUser&&<AdminPanel entries={entries} loadEntries={loadEntries} showToast={showToast} adminUser={adminUser} isOwner={adminUser.role==="owner"}/>}
+        {page==="adminPanel"&&adminUser&&<AdminPanel entries={entries} loadEntries={loadEntries} showToast={showToast} adminUser={adminUser} isOwner={adminUser.role==="owner"} setSiteContent={setSiteContent}/>}
       </main>
       {toast&&<div style={{position:"fixed",bottom:24,right:24,background:toast.type==="error"?"#7f1d1d":"#1a3a2a",border:`1px solid ${toast.type==="error"?RED:GREEN}`,color:toast.type==="error"?RED:GREEN,borderRadius:8,padding:"12px 18px",fontSize:13,fontWeight:600,zIndex:999,animation:"toastIn 0.3s ease",maxWidth:300}}>{toast.msg}</div>}
     </div>

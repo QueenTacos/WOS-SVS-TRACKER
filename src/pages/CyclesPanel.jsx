@@ -78,6 +78,9 @@ export function CyclesPanel({showToast,isOwner}){
 
   return(
     <div className="fade">
+      <div style={{background:`${GOLD}12`,border:`1px solid ${GOLD}33`,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:12,color:MUTED}}>
+        ℹ️ This list is for reference only — it does not control which submission window is live. To open or close the actual submission window players use, go to the <strong style={{color:TEXT}}>📅 Dates</strong> tab.
+      </div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <h3 style={{fontSize:16,fontWeight:700,color:GREEN}}>🔄 SVS Cycles</h3>
         <button className="bp" style={{background:GREEN}} onClick={()=>{setAdding(true);setExpanded("new");}}>+ Add Cycle</button>

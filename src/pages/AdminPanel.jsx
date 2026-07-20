@@ -4,8 +4,9 @@ import { EmptyState } from '../components/EmptyState.jsx';
 import { OWNER_EMAIL } from '../lib/auth.js';
 import { fmtDate } from '../lib/format.js';
 import { ALL_ITEMS } from '../lib/items.js';
-import { ACCENT, BORDER, CARD, CARD2, GOLD, GREEN, MUTED, RED, TEXT } from '../lib/theme.js';
+import { ACCENT, BORDER, CARD, CARD2, GOLD, GREEN, MUTED, ORANGE, RED, TEXT } from '../lib/theme.js';
 import { CyclesPanel } from './CyclesPanel.jsx';
+import { DateSettingsPanel } from './DateSettingsPanel.jsx';
 import { EditEntry } from './EditEntry.jsx';
 import { SiteContentPanel } from './SiteContentPanel.jsx';
 
@@ -41,6 +42,7 @@ export function AdminPanel({entries,loadEntries,showToast,adminUser,isOwner,setS
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button className="bg" onClick={()=>setTab("entries")} style={tab==="entries"?{borderColor:ACCENT,color:ACCENT}:{}}>Entries ({entries.length})</button>
           <button className="bg" onClick={()=>setTab("cycles")} style={tab==="cycles"?{borderColor:GREEN,color:GREEN}:{}}>🔄 Cycles</button>
+          <button className="bg" onClick={()=>setTab("dates")} style={tab==="dates"?{borderColor:ORANGE,color:ORANGE}:{}}>📅 Dates</button>
           <button className="bg" onClick={()=>setTab("content")} style={tab==="content"?{borderColor:ACCENT,color:ACCENT}:{}}>✏️ Site Content</button>
           {isOwner&&<button className="bg" onClick={()=>setTab("admins")} style={tab==="admins"?{borderColor:GOLD,color:GOLD}:{}}>Manage Admins</button>}
         </div>
@@ -81,6 +83,7 @@ export function AdminPanel({entries,loadEntries,showToast,adminUser,isOwner,setS
       ))}
 
       {tab==="cycles"&&<CyclesPanel showToast={showToast} isOwner={isOwner}/>}
+      {tab==="dates"&&<DateSettingsPanel showToast={showToast}/>}
       {tab==="content"&&<SiteContentPanel showToast={showToast} setSiteContent={setSiteContent}/>}
       {tab==="admins"&&isOwner&&(
         <div>

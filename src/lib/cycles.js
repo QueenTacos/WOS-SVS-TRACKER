@@ -7,7 +7,7 @@ export const DEFAULT_DATES = {
   c1_baseline_start: "2026-06-20T00:00:00",
   c1_baseline_end:   "2026-07-09T23:59:59",
   c1_final_start:    "2026-07-10T00:00:00",
-  c1_final_end:      "2026-07-12T23:50:00",
+  c1_final_end:      "2026-07-12T23:50:00", 
   c1_prep_end:       "2026-07-17T23:59:59",
   c2_start:          "2026-07-18T00:00:00",
   c2_end:            "2026-08-09T23:59:59",

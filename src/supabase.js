@@ -153,3 +153,67 @@ export async function saveSiteContent(value) {
   const { error } = await supabase.from('settings').upsert({ id: 'site_content', value }, { onConflict: 'id' })
   if (error) throw error
 }
+
+// ── CYCLE ARCHIVE (past cycle results, snapshotted when a new cycle starts) ──
+export async function archiveCycleResults(cycleLabel, entries) {
+  const rows = entries
+    .filter(e => e.cycle1_firstAt) // only archive players who actually participated
+    .map(e => ({
+      cycle_label: cycleLabel,
+      entry_id: e.id,
+      player_name: e.playerName,
+      gamer_id: e.gamerId,
+      alliance_tag: e.allianceTag,
+      first_bag: e.cycle1_firstBag || null,
+      first_at: e.cycle1_firstAt || null,
+      latest_bag: e.cycle1_finalLatestBag || e.cycle1_latestBag || null,
+      latest_at: e.cycle1_finalLatestAt || e.cycle1_latestAt || null,
+      final_bag: e.cycle1_finalLatestBag || null,
+      final_at: e.cycle1_finalLatestAt || null,
+      screenshot: e.cycle1_firstScreenshot || null,
+    }))
+  if (rows.length === 0) return
+  const { error } = await supabase.from('cycle_archive').insert(rows)
+  if (error) throw error
+}
+
+export async function getCycleArchiveLabels() {
+  const { data, error } = await supabase
+    .from('cycle_archive')
+    .select('cycle_label, archived_at')
+    .order('archived_at', { ascending: false })
+  if (error) return []
+  const seen = new Set()
+  const labels = []
+  for (const row of data) {
+    if (!seen.has(row.cycle_label)) { seen.add(row.cycle_label); labels.push(row) }
+  }
+  return labels
+}
+
+export async function getCycleArchiveResults(cycleLabel) {
+  const { data, error } = await supabase
+    .from('cycle_archive')
+    .select('*')
+    .eq('cycle_label', cycleLabel)
+  if (error) return []
+  return data
+}
+
+export async function resetEntryForNewCycle(entryId) {
+  const { error } = await supabase
+    .from('entries')
+    .update({
+      cycle1_first_bag: null,
+      cycle1_first_at: null,
+      cycle1_latest_bag: null,
+      cycle1_latest_at: null,
+      cycle1_final_latest_bag: null,
+      cycle1_final_latest_at: null,
+      cycle1_final_first_at: null,
+      cycle1_first_screenshot: null,
+      latest_screenshot: null,
+    })
+    .eq('id', entryId)
+  if (error) throw error
+}  
